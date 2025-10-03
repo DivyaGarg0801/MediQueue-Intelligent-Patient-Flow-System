@@ -40,8 +40,8 @@ def get_patients():
 @app.route("/patients", methods=["POST"])
 def add_patient():
     data = request.json
-    sql = "INSERT INTO patient (p_name, p_age, p_gender, p_contact) VALUES (%s, %s, %s, %s)"
-    values = (data["p_name"], data["p_age"], data["p_gender"], data["p_contact"])
+    sql = "INSERT INTO patient (p_name, age, gender, contact, address) VALUES (%s, %s, %s, %s, %s)"
+    values = (data["p_name"], data["age"], data["gender"], data["contact"], data["address"])
     cursor.execute(sql, values)
     db.commit()
     return jsonify({"message": "Patient added successfully!"})
@@ -49,8 +49,8 @@ def add_patient():
 @app.route("/patients/<int:p_id>", methods=["PUT"])
 def update_patient(p_id):
     data = request.json
-    sql = "UPDATE patient SET p_name=%s, p_age=%s, p_gender=%s, p_contact=%s WHERE p_id=%s"
-    values = (data["p_name"], data["p_age"], data["p_gender"], data["p_contact"], p_id)
+    sql = "UPDATE patient SET p_name=%s, age=%s, gender=%s, contact=%s, address=%s  WHERE p_id=%s"
+    values = (data["p_name"], data["age"], data["gender"], data["contact"], data["address"], p_id)
     cursor.execute(sql, values)
     db.commit()
     return jsonify({"message": "Patient updated successfully!"})
@@ -73,8 +73,8 @@ def get_doctors():
 @app.route("/doctors", methods=["POST"])
 def add_doctor():
     data = request.json
-    sql = "INSERT INTO doctor (d_name, d_specialization, d_contact) VALUES (%s, %s, %s)"
-    values = (data["d_name"], data["d_specialization"], data["d_contact"])
+    sql = "INSERT INTO doctor (d_name, specialization, availability) VALUES (%s, %s, %s)"
+    values = (data["d_name"], data["specialization"], data["availability"])
     cursor.execute(sql, values)
     db.commit()
     return jsonify({"message": "Doctor added successfully!"})
@@ -82,8 +82,8 @@ def add_doctor():
 @app.route("/doctors/<int:d_id>", methods=["PUT"])
 def update_doctor(d_id):
     data = request.json
-    sql = "UPDATE doctor SET d_name=%s, d_specialization=%s, d_contact=%s WHERE d_id=%s"
-    values = (data["d_name"], data["d_specialization"], data["d_contact"], d_id)
+    sql = "UPDATE doctor SET d_name=%s, specialization=%s, availability=%s WHERE d_id=%s"
+    values = (data["d_name"], data["specialization"], data["availability"], d_id)
     cursor.execute(sql, values)
     db.commit()
     return jsonify({"message": "Doctor updated successfully!"})
@@ -106,8 +106,8 @@ def get_appointments():
 @app.route("/appointments", methods=["POST"])
 def add_appointment():
     data = request.json
-    sql = "INSERT INTO appointment (p_id, d_id, symptom, prescription) VALUES (%s, %s, %s, %s)"
-    values = (data["p_id"], data["d_id"], data["symptom"], data["prescription"])
+    sql = "INSERT INTO appointment (p_id, d_id, date, time, priority, a_status) VALUES (%s, %s, %s, %s, %s, %s)"
+    values = (data["p_id"], data["d_id"], data["date"], data["time"], data["priority"], data["a_status"])
     cursor.execute(sql, values)
     db.commit()
     return jsonify({"message": "Appointment created!"})
@@ -115,8 +115,8 @@ def add_appointment():
 @app.route("/appointments/<int:a_id>", methods=["PUT"])
 def update_appointment(a_id):
     data = request.json
-    sql = "UPDATE appointment SET p_id=%s, d_id=%s, symptom=%s, prescription=%s WHERE a_id=%s"
-    values = (data["p_id"], data["d_id"], data["symptom"], data["prescription"], a_id)
+    sql = "UPDATE appointment SET p_id=%s, d_id=%s, date=%s, time=%s, priority=%s, a_status=%s WHERE a_id=%s"
+    values = (data["p_id"], data["d_id"], data["date"], data["time"], data["priority"], data["a_status"], a_id)
     cursor.execute(sql, values)
     db.commit()
     return jsonify({"message": "Appointment updated!"})
@@ -172,8 +172,8 @@ def get_consultations():
 @app.route("/consultations", methods=["POST"])
 def add_consultation():
     data = request.json
-    sql = "INSERT INTO consultation (a_id, notes) VALUES (%s, %s)"
-    values = (data["a_id"], data["notes"])
+    sql = "INSERT INTO consultation (a_id, symptoms, prescription) VALUES (%s, %s, %s)"
+    values = (data["a_id"], data["symptoms"], data["prescription"])
     cursor.execute(sql, values)
     db.commit()
     return jsonify({"message": "Consultation added!"})
@@ -181,8 +181,8 @@ def add_consultation():
 @app.route("/consultations/<int:c_id>", methods=["PUT"])
 def update_consultation(c_id):
     data = request.json
-    sql = "UPDATE consultation SET a_id=%s, notes=%s WHERE c_id=%s"
-    values = (data["a_id"], data["notes"], c_id)
+    sql = "UPDATE consultation SET a_id=%s, symptoms=%s, prescription=%s WHERE c_id=%s"
+    values = (data["a_id"], data["symptoms"], data["prescription"], c_id)
     cursor.execute(sql, values)
     db.commit()
     return jsonify({"message": "Consultation updated!"})
@@ -200,13 +200,13 @@ def delete_consultation(c_id):
 @app.route("/billing", methods=["GET"])
 def get_bills():
     cursor.execute("SELECT * FROM billing")
-    return jsonify(cursor.fetchall())
+    return jsonify(convert_dates(cursor.fetchall()))
 
 @app.route("/billing", methods=["POST"])
 def add_bill():
     data = request.json
-    sql = "INSERT INTO billing (p_id, amount, status) VALUES (%s, %s, %s)"
-    values = (data["p_id"], data["amount"], data["status"])
+    sql = "INSERT INTO billing (a_id, billing_date, amount, payment_status) VALUES (%s, %s, %s, %s)"
+    values = (data["a_id"], data["billing_date"], data["amount"], data["payment_status"])
     cursor.execute(sql, values)
     db.commit()
     return jsonify({"message": "Bill added!"})
@@ -214,8 +214,8 @@ def add_bill():
 @app.route("/billing/<int:b_id>", methods=["PUT"])
 def update_bill(b_id):
     data = request.json
-    sql = "UPDATE billing SET p_id=%s, amount=%s, status=%s WHERE b_id=%s"
-    values = (data["p_id"], data["amount"], data["status"], b_id)
+    sql = "UPDATE billing SET a_id=%s, billing_date=%s, amount=%s, payment_status=%s WHERE b_id=%s"
+    values = (data["a_id"], data["billing_date"], data["amount"], data["payment_status"], b_id)
     cursor.execute(sql, values)
     db.commit()
     return jsonify({"message": "Bill updated!"})
