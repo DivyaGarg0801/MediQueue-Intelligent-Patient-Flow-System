@@ -32,6 +32,7 @@ def convert_dates(rows):
 # ----------------------------
 # Patient Routes
 # ----------------------------
+
 @app.route("/patients", methods=["GET"])
 def get_patients():
     cursor.execute("SELECT * FROM patient")
