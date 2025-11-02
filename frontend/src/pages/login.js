@@ -9,7 +9,7 @@ const Login = () => {
   const [otpSent, setOtpSent] = useState(false);
   const [generatedOtp, setGeneratedOtp] = useState("");
   const [enteredOtp, setEnteredOtp] = useState("");
-  const [patientId, setPatientId] = useState(null);
+  const [userId, setUserId] = useState(null);
 
   const navigate = useNavigate();
 
@@ -21,26 +21,32 @@ const Login = () => {
     }
 
     try {
-      // Check if patient exists in DB
-      const res = await fetch(`http://localhost:5000/patients`);
-      const data = await res.json();
-      const patient = data.find((p) => p.contact === mobile);
+      let url = "";
+      if (role === "patient") url = "http://localhost:5000/patients";
+      else if (role === "doctor") url = "http://localhost:5000/doctors";
+      else if (role === "admin") url = "http://localhost:5000/admins"; // make sure backend has this
 
-      if (!patient) {
-        alert("No patient found with this mobile number. Please register first.");
+      const res = await fetch(url);
+      const data = await res.json();
+
+      // find record with same contact
+      const user = data.find((u) => u.contact === mobile);
+
+      if (!user) {
+        alert(`No ${role} found with this mobile number. Please register first.`);
         return;
       }
 
-      // Generate OTP and store patient ID
+      // Generate and store OTP
       const otp = Math.floor(100000 + Math.random() * 900000).toString();
       setGeneratedOtp(otp);
       setOtpSent(true);
-      setPatientId(patient.p_id);
+      setUserId(user.p_id || user.d_id || user.admin_id);
 
-      alert(`Your OTP is: ${otp}`); // demo only, in real app use SMS service
+      alert(`Your OTP is: ${otp}`); // Demo only
     } catch (err) {
       console.error(err);
-      alert("Error fetching patient data");
+      alert("Error checking user data");
     }
   };
 
@@ -48,9 +54,14 @@ const Login = () => {
   const verifyOtp = () => {
     if (enteredOtp === generatedOtp) {
       alert("OTP verified! Redirecting to your dashboard...");
-      // Store logged-in patient ID
-      localStorage.setItem("patientId", patientId);
-      navigate("/patients");
+
+      // store role and userId for session
+      localStorage.setItem("role", role);
+      localStorage.setItem("userId", userId);
+
+      if (role === "patient") navigate("/patients");
+      else if (role === "doctor") navigate("/doctors");
+      else if (role === "admin") navigate("/desk"); // or your admin page
     } else {
       alert("Invalid OTP. Try again.");
     }

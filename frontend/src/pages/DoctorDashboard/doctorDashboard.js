@@ -1,60 +1,33 @@
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import "./doctorDashboard.css";
+import Appointments from "./appointments";
+import Consultations from "./consultations";
+import Patients from "./patient";
 
 const DoctorDashboard = () => {
-  const [appointments, setAppointments] = useState([]);
+  const [activeTab, setActiveTab] = useState("appointments");
 
-  useEffect(() => {
-    fetch("http://127.0.0.1:5000/api/appointments")
-      .then((res) => res.json())
-      .then((data) => setAppointments(data))
-      .catch((err) => console.error("Error fetching appointments:", err));
-  }, []);
+  const handleLogout = () => {
+    alert("Logged out successfully!");
+    window.location.href = "/"; // or navigate("/login") if using React Router
+  };
 
   return (
     <div className="doctor-dashboard">
       <aside className="sidebar">
-        <h2>Dr. Dashboard</h2>
+        <h2>Doctor Dashboard</h2>
         <ul>
-          <li>Appointments</li>
-          <li>Consultations</li>
-          <li>Patients</li>
-          <li>Logout</li>
+          <li onClick={() => setActiveTab("appointments")}>Appointments</li>
+          <li onClick={() => setActiveTab("consultations")}>Consultations</li>
+          <li onClick={() => setActiveTab("patients")}>Patients</li>
+          <li onClick={handleLogout}>Logout</li>
         </ul>
       </aside>
 
       <main className="content">
-        <h1>Today's Appointments</h1>
-        <table>
-          <thead>
-            <tr>
-              <th>ID</th>
-              <th>Patient</th>
-              <th>Doctor</th>
-              <th>Date</th>
-              <th>Time</th>
-              <th>Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            {appointments.length > 0 ? (
-              appointments.map((a) => (
-                <tr key={a.a_id}>
-                  <td>{a.a_id}</td>
-                  <td>{a.patient}</td>
-                  <td>{a.doctor}</td>
-                  <td>{a.date}</td>
-                  <td>{a.time}</td>
-                  <td>{a.status}</td>
-                </tr>
-              ))
-            ) : (
-              <tr>
-                <td colSpan="6">Loading appointments...</td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+        {activeTab === "appointments" && <Appointments />}
+        {activeTab === "consultations" && <Consultations />}
+        {activeTab === "patients" && <Patients />}
       </main>
     </div>
   );
