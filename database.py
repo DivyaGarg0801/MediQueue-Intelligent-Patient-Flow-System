@@ -47,7 +47,7 @@ CREATE TABLE appointment (
     d_id INT,
     date DATE,
     time TIME,
-    status ENUM('Scheduled', 'Completed', 'Cancelled') DEFAULT 'Scheduled',
+    status ENUM('Scheduled', 'Completed', 'Cancelled','Waiting') DEFAULT 'Scheduled',
     FOREIGN KEY (p_id) REFERENCES patient(p_id),
     FOREIGN KEY (d_id) REFERENCES doctor(d_id)
 );
