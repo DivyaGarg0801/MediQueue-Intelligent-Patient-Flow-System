@@ -18,31 +18,6 @@ const Consultations = () => {
     fetchConsultations();
   }, []);
 
-  // ✅ Function to mark consultation as completed
-  const markCompleted = async (c_id) => {
-    try {
-      const res = await fetch(`http://127.0.0.1:5000/consultations/${c_id}/complete`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
-      });
-
-      const data = await res.json();
-
-      if (res.ok) {
-        alert(data.message || "Marked as completed!");
-        // Refresh table
-        fetchConsultations();
-      } else {
-        alert(data.error || "Failed to mark as completed");
-      }
-    } catch (err) {
-      console.error("❌ Error marking complete:", err);
-      alert("Something went wrong while updating.");
-    }
-  };
-
   return (
     <div>
       <h1>Consultations</h1>
@@ -55,8 +30,6 @@ const Consultations = () => {
             <th>Date</th>
             <th>Symptoms</th>
             <th>Prescription</th>
-            <th>Status</th>
-            <th>Action</th>
           </tr>
         </thead>
         <tbody>
@@ -69,19 +42,11 @@ const Consultations = () => {
                 <td>{c.date}</td>
                 <td>{c.symptoms}</td>
                 <td>{c.prescription}</td>
-                <td>{c.status}</td>
-                <td>
-                  {c.status !== "Completed" ? (
-                    <button onClick={() => markCompleted(c.id)}>Mark Completed</button>
-                  ) : (
-                    <span>✅ Completed</span>
-                  )}
-                </td>
               </tr>
             ))
           ) : (
             <tr>
-              <td colSpan="8">No consultations found.</td>
+              <td colSpan="6">No consultations found.</td>
             </tr>
           )}
         </tbody>

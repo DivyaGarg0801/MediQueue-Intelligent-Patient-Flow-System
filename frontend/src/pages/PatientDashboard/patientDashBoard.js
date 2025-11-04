@@ -1,153 +1,124 @@
 import React, { useEffect, useState } from "react";
-import { User, LogOut } from "lucide-react";
 import "./patientDashboard.css";
+import { useNavigate } from "react-router-dom"; // ✅ Added
 
 const PatientDashboard = () => {
-  const [patient, setPatient] = useState({});
+  const [patientData, setPatientData] = useState(null);
   const [appointments, setAppointments] = useState([]);
-  const [consultations, setConsultations] = useState([]);
-  const [showProfile, setShowProfile] = useState(false);
+  const [upcoming, setUpcoming] = useState([]);
+  const [past, setPast] = useState([]);
 
-  const patientId = localStorage.getItem("patientId");
+  const userId = localStorage.getItem("userId");
+  const role = localStorage.getItem("role");
+  const navigate = useNavigate(); // ✅ Added
 
-  // Fetch patient info
+  // ✅ Fetch patient details
   useEffect(() => {
-    if (!patientId) return;
-    fetch(`http://localhost:5000/patients/${patientId}`)
-      .then((res) => res.json())
-      .then((data) => setPatient(data))
-      .catch((err) => console.log(err));
-  }, [patientId]);
+    const fetchPatientData = async () => {
+      try {
+        const res = await fetch(`http://localhost:5000/patients/${userId}`);
+        const data = await res.json();
+        setPatientData(data);
+      } catch (err) {
+        console.error("Error fetching patient data:", err);
+      }
+    };
+    fetchPatientData();
+  }, [userId]);
 
-  // Fetch appointments
+  // ✅ Fetch and filter appointments
   useEffect(() => {
-    fetch(`http://localhost:5000/appointments`)
-      .then((res) => res.json())
-      .then((data) => {
-        const myAppointments = data.filter(
-          (appt) => appt.p_id === parseInt(patientId)
-        );
-        setAppointments(myAppointments);
-      })
-      .catch((err) => console.log(err));
-  }, [patientId]);
+    const fetchAppointments = async () => {
+      try {
+        const res = await fetch("http://localhost:5000/appointments");
+        const data = await res.json();
 
-  // Fetch consultations
-  useEffect(() => {
-    fetch(`http://localhost:5000/consultations`)
-      .then((res) => res.json())
-      .then((data) => {
-        const myConsultations = data.filter((c) =>
-          appointments.find((a) => a.a_id === c.a_id)
-        );
-        setConsultations(myConsultations);
-      })
-      .catch((err) => console.log(err));
-  }, [appointments]);
+        if (patientData && patientData.p_name) {
+          const patientAppointments = data.filter(
+            (a) => a.patient.toLowerCase() === patientData.p_name.toLowerCase()
+          );
+
+          const today = new Date().toISOString().split("T")[0];
+
+          const upcomingList = patientAppointments.filter(
+            (a) =>
+              (a.status === "Scheduled" || a.date >= today)
+          );
+
+          const pastList = patientAppointments.filter(
+            (a) =>
+              (a.status === "Completed" || a.date < today)
+          );
+
+          setAppointments(patientAppointments);
+          setUpcoming(upcomingList);
+          setPast(pastList);
+        }
+      } catch (err) {
+        console.error("Error fetching appointments:", err);
+      }
+    };
+    fetchAppointments();
+  }, [patientData]);
+
+  if (!patientData) return <div className="loading">Loading Dashboard...</div>;
 
   return (
-    <div className="dashboard-container">
-      <header className="dashboard-header">
-        <h1>Welcome, {patient.p_name || "Patient"}!</h1>
+    <div className="patient-dashboard">
+      <div className="dashboard-header">
+        <h2>Welcome, {patientData.p_name}</h2>
+        {/* ✅ Added Book Appointment button */}
+        <button
+          className="book-btn"
+          onClick={() => navigate("/bookappointment")}
+        >
+          + Book Appointment
+        </button>
+      </div>
 
-        <div className="header-right">
-          <button
-            className="profile-button"
-            onClick={() => setShowProfile(!showProfile)}
-          >
-            <User />
-          </button>
-          <button
-            className="logout-button"
-            onClick={() => {
-              localStorage.removeItem("patientId");
-              window.location.href = "/login";
-            }}
-          >
-            <LogOut /> Logout
-          </button>
+      <div className="stats-section">
+        <div className="stat-card">
+          <h3>{upcoming.length}</h3>
+          <p>Upcoming Appointments</p>
         </div>
-      </header>
-
-      {showProfile && (
-        <div className="profile-modal">
-          <div className="profile-content">
-            <h2>My Profile</h2>
-            <p><strong>Name:</strong> {patient.p_name}</p>
-            <p><strong>Age:</strong> {patient.age}</p>
-            <p><strong>Gender:</strong> {patient.gender}</p>
-            <p><strong>Mobile:</strong> {patient.contact}</p>
-            <p><strong>Address:</strong> {patient.address}</p>
-            <button onClick={() => setShowProfile(false)}>Close</button>
-          </div>
-        </div>
-      )}
-
-      <div className="summary-cards">
-        <div className="card">
-          <h3>Upcoming Appointments</h3>
-          <p>{appointments.filter(a => new Date(a.date) >= new Date()).length}</p>
-        </div>
-        <div className="card">
-          <h3>Past Appointments</h3>
-          <p>{appointments.filter(a => new Date(a.date) < new Date()).length}</p>
-        </div>
-        <div className="card">
-          <h3>Health Records</h3>
-          <p>{consultations.length}</p>
+        <div className="stat-card">
+          <h3>{past.length}</h3>
+          <p>Past Appointments</p>
         </div>
       </div>
 
-      {/* Appointments Table */}
       <div className="appointments-section">
-        <h2>Upcoming Appointments</h2>
-        <table>
-          <thead>
-            <tr>
-              <th>Doctor</th>
-              <th>Date</th>
-              <th>Time</th>
-              <th>Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            {appointments
-              .filter((a) => new Date(a.date) >= new Date())
-              .map((a) => (
-                <tr key={a.a_id}>
-                  <td>{a.d_id}</td>
-                  <td>{a.date}</td>
-                  <td>{a.time}</td>
-                  <td>{a.a_status}</td>
-                </tr>
-              ))}
-          </tbody>
-        </table>
-      </div>
-
-      {/* Health Records Table */}
-      <div className="records-section">
-        <h2>Health Records</h2>
-        <table>
-          <thead>
-            <tr>
-              <th>Date</th>
-              <th>Doctor</th>
-              <th>Symptoms</th>
-              <th>Prescription</th>
-            </tr>
-          </thead>
-          <tbody>
-            {consultations.map((c) => (
-              <tr key={c.c_id}>
-                <td>{new Date(c.date).toLocaleDateString()}</td>
-                <td>{appointments.find((a) => a.a_id === c.a_id)?.d_id}</td>
-                <td>{c.symptoms}</td>
-                <td>{c.prescription}</td>
-              </tr>
+        <h3>Upcoming Appointments</h3>
+        {upcoming.length > 0 ? (
+          <div className="appointment-list">
+            {upcoming.map((a) => (
+              <div key={a.id} className="appointment-card upcoming">
+                <p><strong>Doctor:</strong> {a.doctor}</p>
+                <p><strong>Date:</strong> {a.date}</p>
+                <p><strong>Time:</strong> {a.time}</p>
+                <p className="status">{a.status}</p>
+              </div>
             ))}
-          </tbody>
-        </table>
+          </div>
+        ) : (
+          <p className="empty-msg">No upcoming appointments</p>
+        )}
+
+        <h3>Past Appointments</h3>
+        {past.length > 0 ? (
+          <div className="appointment-list">
+            {past.map((a) => (
+              <div key={a.id} className="appointment-card past">
+                <p><strong>Doctor:</strong> {a.doctor}</p>
+                <p><strong>Date:</strong> {a.date}</p>
+                <p><strong>Time:</strong> {a.time}</p>
+                <p className="status">{a.status}</p>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="empty-msg">No past appointments</p>
+        )}
       </div>
     </div>
   );

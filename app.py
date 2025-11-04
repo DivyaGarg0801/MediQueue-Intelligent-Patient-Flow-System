@@ -110,9 +110,9 @@ def register_patient():
         return jsonify({"error": "Database connection failed"}), 500
 
     cursor = conn.cursor()
-    sql = """INSERT INTO patient (p_name, age, gender, contact, address)
-             VALUES (%s, %s, %s, %s, %s)"""
-    values = (data["p_name"], data["age"], data["gender"], data["contact"], data["address"])
+    sql = """INSERT INTO patient (p_name, age, gender, contact)
+             VALUES (%s, %s, %s, %s)"""
+    values = (data["p_name"], data["age"], data["gender"], data["contact"])
     cursor.execute(sql, values)
     conn.commit()
     cursor.close()
@@ -133,6 +133,18 @@ def get_patients():
     cursor.close()
     conn.close()
     return jsonify(data)
+
+@app.route("/patients/<int:p_id>", methods=["GET"])
+def get_patient_by_id(p_id):
+    conn = get_connection()
+    cursor = conn.cursor(dictionary=True)
+    cursor.execute("SELECT * FROM patient WHERE p_id=%s", (p_id,))
+    patient = cursor.fetchone()
+    cursor.close()
+    conn.close()
+    if not patient:
+        return jsonify({"error": "Patient not found"}), 404
+    return jsonify(patient)
 
 
 @app.route("/patients/<int:p_id>", methods=["PUT"])
@@ -161,6 +173,27 @@ def delete_patient(p_id):
     conn.close()
     return jsonify({"message": "Patient deleted!"})
 
+@app.route("/health_records/<int:patient_id>", methods=["GET"])
+def get_health_records(patient_id):
+    conn = get_connection()
+    if not conn:
+        return jsonify({"error": "Database connection failed"}), 500
+
+    cursor = conn.cursor(dictionary=True)
+    sql = """
+        SELECT a.date, d.d_name AS doctor, h.symptoms, h.prescription
+        FROM health_record h
+        JOIN appointment a ON h.appointment_id = a.appointment_id
+        JOIN doctor d ON a.doctor_id = d.doctor_id
+        WHERE a.patient_id = %s
+        ORDER BY a.date DESC
+    """
+    cursor.execute(sql, (patient_id,))
+    data = cursor.fetchall()
+    cursor.close()
+    conn.close()
+
+    return jsonify(data)
 
 # ----------------------------
 # DOCTOR ROUTES
@@ -267,6 +300,7 @@ def get_appointments():
         print("❌ Error fetching appointments:", e)
         return jsonify({"error": str(e)})
 
+
 @app.route("/appointments", methods=["POST"])
 def add_appointment():
     data = request.json
@@ -289,6 +323,95 @@ def add_appointment():
     cursor.close()
     conn.close()
     return jsonify({"message": "Appointment created successfully!"})
+
+from datetime import datetime, time, timedelta
+
+@app.route("/appointments/<int:a_id>/complete", methods=["POST"])
+def complete_appointment(a_id):
+    conn = get_connection()
+    cursor = conn.cursor(dictionary=True)
+
+    # Fetch appointment details
+    cursor.execute("SELECT date, time, status FROM appointment WHERE a_id=%s", (a_id,))
+    appointment = cursor.fetchone()
+
+    if not appointment:
+        cursor.close()
+        conn.close()
+        return jsonify({"error": "Appointment not found"}), 404
+
+    if appointment["status"] == "Completed":
+        cursor.close()
+        conn.close()
+        return jsonify({"message": "Appointment already completed"}), 400
+
+    # Convert time if it's a timedelta
+    appt_time = appointment["time"]
+    if isinstance(appt_time, timedelta):
+        total_seconds = appt_time.total_seconds()
+        hours = int(total_seconds // 3600)
+        minutes = int((total_seconds % 3600) // 60)
+        seconds = int(total_seconds % 60)
+        appt_time = time(hours, minutes, seconds)
+
+    # Combine date and time
+    appointment_datetime = datetime.combine(appointment["date"], appt_time)
+    current_time = datetime.now()
+
+    # Prevent marking before actual time
+    if current_time < appointment_datetime:
+        cursor.close()
+        conn.close()
+        return jsonify({"error": "Appointment cannot be marked as completed before scheduled time"}), 400
+
+    # Update status
+    cursor.execute("UPDATE appointment SET status='Completed' WHERE a_id=%s", (a_id,))
+    conn.commit()
+
+    cursor.close()
+    conn.close()
+    return jsonify({"message": "Appointment marked as completed"}), 200
+
+@app.route("/book_appointment", methods=["POST"])
+def book_appointment():
+    data = request.json
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    sql = """INSERT INTO appointment (p_id, d_id, date, time, status)
+             VALUES (%s, %s, %s, %s, %s)"""
+    values = (data["p_id"], data["d_id"], data["date"], data["time"], "Scheduled")
+
+    cursor.execute(sql, values)
+    conn.commit()
+    cursor.close()
+    conn.close()
+
+    return jsonify({"message": "Appointment booked successfully!"})
+
+@app.route("/all_appointments/<int:patient_id>")
+def all_appointments(patient_id):
+    conn = get_connection()
+    cursor = conn.cursor(dictionary=True)
+
+    query = """
+        SELECT 
+            a.a_id,
+            a.date,
+            a.time,
+            a.status,
+            d.d_name AS doctor
+        FROM appointment a
+        JOIN doctor d ON a.d_id = d.d_id
+        WHERE a.p_id = %s
+        ORDER BY a.date DESC, a.time DESC;
+    """
+    cursor.execute(query, (patient_id,))
+    result = cursor.fetchall()
+
+    cursor.close()
+    conn.close()
+    return jsonify(result)
 
 
 @app.route("/consultations/<int:c_id>/complete", methods=["PUT"])
@@ -365,9 +488,10 @@ def get_consultations():
         cursor.execute("""
             SELECT 
                 c.c_id AS id,
+                c.a_id,  -- include appointment ID
                 p.p_name AS patient,
                 d.d_name AS doctor,
-                DATE(a.date) AS date,   -- ✅ show only date
+                DATE(a.date) AS date,
                 c.symptoms,
                 c.prescription
             FROM consultation c
@@ -376,21 +500,16 @@ def get_consultations():
             JOIN doctor d ON a.d_id = d.d_id
             ORDER BY a.date DESC;
         """)
-
         consultations = cursor.fetchall()
 
-        # ✅ Convert any date/time/timedelta objects to string
-        for row in consultations:
-            for key, val in row.items():
-                if isinstance(val, (datetime, timedelta, date)):
-                    row[key] = str(val)
-
+        cursor.close()
         conn.close()
+
         return jsonify(consultations)
 
     except Exception as e:
-        print("❌ Error fetching consultations:", e)
-        return jsonify({"error": str(e)})
+        print("Error fetching consultations:", e)
+        return jsonify({"error": "Failed to fetch consultations"}), 500
 
 @app.route("/consultations", methods=["POST"])
 def add_consultation():
@@ -466,6 +585,54 @@ def update_queue(q_id):
     conn.close()
     return jsonify({"message": "Queue updated successfully!"})
 
+@app.route('/get_patient_data', methods=['GET'])
+def get_patient_data():
+    p_id = request.args.get('p_id')
+    conn = get_connection()
+    cursor = conn.cursor(dictionary=True)
+
+    # Upcoming Appointments (Scheduled + date >= today)
+    cursor.execute("""
+        SELECT a.a_id, a.date, a.time, a.status, d.d_name
+        FROM appointment a
+        JOIN doctor d ON a.d_id = d.d_id
+        WHERE a.p_id = %s AND a.status = 'Scheduled' AND a.date >= CURDATE()
+        ORDER BY a.date ASC
+    """, (p_id,))
+    upcoming = cursor.fetchall()
+
+    # Past Appointments (Completed OR date < today)
+    cursor.execute("""
+        SELECT a.a_id, a.date, a.time, a.status, d.d_name
+        FROM appointment a
+        JOIN doctor d ON a.d_id = d.d_id
+        WHERE a.p_id = %s AND (a.status = 'Completed' OR a.date < CURDATE())
+        ORDER BY a.date DESC
+    """, (p_id,))
+    past = cursor.fetchall()
+
+    # Consultations (linked to completed appointments)
+    cursor.execute("""
+        SELECT c.c_id, c.symptoms, c.prescription, a.date, d.d_name
+        FROM consultation c
+        JOIN appointment a ON c.a_id = a.a_id
+        JOIN doctor d ON a.d_id = d.d_id
+        WHERE a.p_id = %s
+        ORDER BY a.date DESC
+    """, (p_id,))
+    consultations = cursor.fetchall()
+
+    cursor.close()
+    conn.close()
+
+    return jsonify({
+        "upcoming_count": len(upcoming),
+        "past_count": len(past),
+        "consultation_count": len(consultations),
+        "upcoming": upcoming,
+        "past": past,
+        "consultations": consultations
+    })
 
 # ----------------------------
 # RUN SERVER

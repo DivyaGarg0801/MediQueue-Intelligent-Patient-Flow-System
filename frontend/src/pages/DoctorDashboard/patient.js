@@ -21,7 +21,6 @@ const Patient = () => {
             <th>Age</th>
             <th>Gender</th>
             <th>Contact</th>
-            <th>Address</th>
           </tr>
         </thead>
         <tbody>
@@ -33,7 +32,7 @@ const Patient = () => {
                 <td>{p.age}</td>
                 <td>{p.gender}</td>
                 <td>{p.contact}</td>
-                <td>{p.address}</td>
+
               </tr>
             ))
           ) : (
