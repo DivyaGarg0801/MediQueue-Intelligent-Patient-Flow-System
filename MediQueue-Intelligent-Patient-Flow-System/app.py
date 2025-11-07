@@ -3,7 +3,7 @@ from flask_cors import CORS
 import mysql.connector
 from mysql.connector import Error
 import random
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, time, timedelta
 
 app = Flask(__name__)
 CORS(app)
@@ -36,6 +36,21 @@ def convert_dates(rows):
             if isinstance(value, (date, datetime, timedelta)):
                 row[key] = str(value)
     return rows
+
+
+def _get_queue_status_column(conn):
+    """Return the column name used to store queue status (q_status or status)."""
+    cursor = conn.cursor()
+    try:
+        cursor.execute("SHOW COLUMNS FROM queue LIKE 'q_status'")
+        if cursor.fetchone():
+            return "q_status"
+        cursor.execute("SHOW COLUMNS FROM queue LIKE 'status'")
+        if cursor.fetchone():
+            return "status"
+    finally:
+        cursor.close()
+    raise RuntimeError("Queue status column not found")
 
 
 # ----------------------------
@@ -459,6 +474,17 @@ def complete_appointment(a_id):
 
     # Update status
     cursor.execute("UPDATE appointment SET status='Completed' WHERE a_id=%s", (a_id,))
+
+    try:
+        queue_status_column = _get_queue_status_column(conn)
+        cursor.execute(
+            f"UPDATE queue SET {queue_status_column}=%s WHERE a_id=%s",
+            ("Completed", a_id),
+        )
+    except RuntimeError:
+        # Queue table might not exist; ignore gracefully
+        pass
+
     conn.commit()
 
     cursor.close()
@@ -841,13 +867,22 @@ def add_billing():
 def get_queue():
     conn = get_connection()
     cursor = conn.cursor(dictionary=True)
-    cursor.execute("""
-        SELECT q.q_id, q.q_status, a.a_id, a.date, a.time, p.p_name, d.d_name, a.priority
+    status_column = _get_queue_status_column(conn)
+    cursor.execute(f"""
+        SELECT q.q_id,
+               q.{status_column} AS q_status,
+               q.token_no,
+               a.a_id,
+               a.date,
+               a.time,
+               a.status AS appointment_status,
+               p.p_name,
+               d.d_name
         FROM queue q
         JOIN appointment a ON q.a_id = a.a_id
         JOIN patient p ON a.p_id = p.p_id
         JOIN doctor d ON a.d_id = d.d_id
-        ORDER BY a.priority DESC, a.time ASC
+        ORDER BY a.date ASC, a.time ASC
     """)
     data = convert_dates(cursor.fetchall())
     cursor.close()
@@ -860,11 +895,167 @@ def update_queue(q_id):
     data = request.json
     conn = get_connection()
     cursor = conn.cursor()
-    cursor.execute("UPDATE queue SET q_status=%s WHERE q_id=%s", (data["q_status"], q_id))
+    status_column = _get_queue_status_column(conn)
+    new_status = data.get("q_status") or data.get("status")
+    if not new_status:
+        cursor.close()
+        conn.close()
+        return jsonify({"error": "Missing queue status value"}), 400
+    cursor.execute(f"UPDATE queue SET {status_column}=%s WHERE q_id=%s", (new_status, q_id))
     conn.commit()
     cursor.close()
     conn.close()
     return jsonify({"message": "Queue updated successfully!"})
+
+
+def _normalize_time(value):
+    """Normalize various MySQL time representations to datetime.time."""
+    if isinstance(value, str):
+        for fmt in ("%H:%M:%S", "%H:%M"):
+            try:
+                return datetime.strptime(value, fmt).time()
+            except ValueError:
+                continue
+        return None
+    if isinstance(value, timedelta):
+        total_seconds = int(value.total_seconds())
+        hours = total_seconds // 3600
+        minutes = (total_seconds % 3600) // 60
+        seconds = total_seconds % 60
+        return time(hours, minutes, seconds)
+    if isinstance(value, time):
+        return value
+    return None
+
+
+def _normalize_date(value):
+    """Normalize various MySQL date representations to datetime.date."""
+    if isinstance(value, str):
+        try:
+            return datetime.strptime(value, "%Y-%m-%d").date()
+        except ValueError:
+            return None
+    return value
+
+
+@app.route("/queue/patient/<int:p_id>", methods=["GET"])
+def get_patient_queue_status(p_id):
+    conn = get_connection()
+    if not conn:
+        return jsonify({"error": "Database connection failed"}), 500
+
+    cursor = conn.cursor(dictionary=True)
+    try:
+        status_column = _get_queue_status_column(conn)
+        status_condition = f"q.{status_column}"
+        cursor.execute(
+            f"""
+            SELECT q.*,
+                   q.{status_column} AS queue_status,
+                   a.a_id AS appointment_id,
+                   a.date AS appointment_date,
+                   a.time AS appointment_time,
+                   a.status AS appointment_status,
+                   a.p_id,
+                   a.d_id AS doctor_id,
+                   p.p_name,
+                   d.d_name
+            FROM queue q
+            JOIN appointment a ON q.a_id = a.a_id
+            JOIN patient p ON a.p_id = p.p_id
+            JOIN doctor d ON a.d_id = d.d_id
+            WHERE a.p_id = %s AND {status_condition} IN ('Waiting','In Progress','Consulting')
+            ORDER BY a.date ASC, a.time ASC
+            LIMIT 1
+            """,
+            (p_id,),
+        )
+        target = cursor.fetchone()
+
+        if not target:
+            return jsonify({"inQueue": False})
+
+        queue_status = target.get("queue_status") or target.get("status")
+        appt_date_raw = target.get("appointment_date") or target.get("date")
+        appt_time_raw = target.get("appointment_time") or target.get("time")
+        doctor_id = target.get("doctor_id") or target.get("d_id")
+        target_appt_id = target.get("appointment_id") or target.get("a_id")
+
+        appt_date = _normalize_date(appt_date_raw)
+        appt_time = _normalize_time(appt_time_raw)
+
+        cursor.execute(
+            f"""
+            SELECT q.*,
+                   q.{status_column} AS queue_status,
+                   a.a_id,
+                   a.time
+            FROM queue q
+            JOIN appointment a ON q.a_id = a.a_id
+            WHERE a.d_id = %s AND a.date = %s AND {status_condition} IN ('Waiting','In Progress','Consulting')
+            ORDER BY a.time ASC
+            """,
+            (doctor_id, appt_date_raw),
+        )
+        doctor_queue = cursor.fetchall()
+
+        ahead_count = 0
+        for entry in doctor_queue:
+            if entry["a_id"] == target_appt_id:
+                break
+            ahead_count += 1
+
+        queue_status = queue_status or "Waiting"
+        position = ahead_count + 1
+        normalized_status = queue_status.lower()
+        if normalized_status in ("in progress", "consulting"):
+            ahead_count = 0
+            position = 0
+
+        average_slot_minutes = 15
+        now = datetime.now()
+        estimated_wait = ahead_count * average_slot_minutes
+
+        appointment_dt = None
+        if appt_date and appt_time:
+            appointment_dt = datetime.combine(appt_date, appt_time)
+            if normalized_status in ("in progress", "consulting"):
+                estimated_wait = 0
+            elif appointment_dt > now:
+                minutes_until = int((appointment_dt - now).total_seconds() // 60)
+                estimated_wait = max(estimated_wait, minutes_until)
+
+        response = {
+            "inQueue": True,
+            "queueStatus": queue_status,
+            "position": position,
+            "aheadCount": ahead_count,
+            "estimatedWaitMinutes": max(0, estimated_wait),
+            "appointment": {
+                "id": target_appt_id,
+                "date": appt_date.isoformat() if appt_date else str(appt_date_raw),
+                "time": appt_time.strftime("%H:%M") if appt_time else str(appt_time_raw),
+                "status": target.get("appointment_status"),
+            },
+            "doctor": {
+                "id": doctor_id,
+                "name": target["d_name"],
+            },
+            "queueId": target.get("q_id"),
+            "lastUpdated": datetime.now().isoformat(),
+        }
+
+        if appointment_dt:
+            response["expectedStartTime"] = appointment_dt.isoformat()
+
+        return jsonify(response)
+
+    except Exception as e:
+        print("❌ Error computing patient queue status:", e)
+        return jsonify({"error": "Failed to fetch queue status"}), 500
+    finally:
+        cursor.close()
+        conn.close()
 
 @app.route('/get_patient_data', methods=['GET'])
 def get_patient_data():

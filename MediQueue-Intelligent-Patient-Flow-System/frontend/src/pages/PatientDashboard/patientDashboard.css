@@ -56,6 +56,7 @@
   justify-content: center;
   gap: 30px;
   margin-bottom: 40px;
+  flex-wrap: wrap;
 }
 
 .stat-card {
@@ -77,6 +78,68 @@
 .stat-card p {
   color: #555;
   font-weight: 500;
+}
+
+.queue-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  min-width: 260px;
+  text-align: left;
+  gap: 8px;
+}
+
+.queue-card h3 {
+  margin-bottom: 12px;
+}
+
+.queue-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+}
+
+.queue-status-pill {
+  display: inline-block;
+  background: #e0f2ff;
+  color: #0077b6;
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+.queue-status-pill.waiting {
+  background: #fff4d7;
+  color: #f39c12;
+}
+
+.queue-status-pill.in-progress,
+.queue-status-pill.consulting {
+  background: #e8f8f2;
+  color: #14a44d;
+}
+
+.queue-status-pill.completed {
+  background: #f0f0f0;
+  color: #6c757d;
+}
+
+.queue-meta {
+  margin: 0;
+  color: #333;
+}
+
+.queue-error {
+  color: #d9534f;
+  font-weight: 500;
+}
+
+.queue-refresh {
+  margin-top: 6px;
+  font-size: 0.85rem;
+  color: #666;
 }
 
 .appointments-section {
