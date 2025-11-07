@@ -1,0 +1,40 @@
+{
+  "devDependencies": {
+    "autoprefixer": "^10.4.21",
+    "postcss": "^8.5.6",
+    "tailwindcss": "^4.1.14"
+  },
+  "name": "mediqueue-intelligent-patient-flow-system-1",
+  "version": "1.0.0",
+  "description": "```\r MediQueue-Intelligent-Patient-Flow-System-1\r ├─ app.py\r ├─ frontend\r │  ├─ package-lock.json\r │  ├─ package.json\r │  ├─ public\r │  │  ├─ favicon.ico\r │  │  ├─ index.html\r │  │  ├─ logo192.png\r │  │  ├─ logo512.png\r │  │  ├─ manifest.json\r │  │  └─ robots.txt\r │  ├─ README.md\r │  └─ src\r │     ├─ api\r │     │  └─ index.js\r │     ├─ App.css\r │     ├─ App.js\r │     ├─ App.test.js\r │     ├─ components\r │     │  ├─ form.js\r │     │  ├─ header.js\r │     │  └─ table.js\r │     ├─ index.css\r │     ├─ index.js\r │     ├─ logo.svg\r │     ├─ pages\r │     │  ├─ DoctorDashboard\r │     │  │  ├─ appointments.js\r │     │  │  ├─ consultations.js\r │     │  │  └─ doctorDashboard.js\r │     │  ├─ login.js\r │     │  ├─ PatientDashboard\r │     │  │  ├─ bookappointment.js\r │     │  │  ├─ myappointment.js\r │     │  │  └─ patientDashBoard.js\r │     │  └─ RegistrationDesk\r │     │     ├─ appointment.js\r │     │     ├─ doctor.js\r │     │     ├─ patient.js\r │     │     └─ registrationDesk.js\r │     ├─ reportWebVitals.js\r │     └─ setupTests.js\r ├─ hospital.sql\r ├─ package-lock.json\r ├─ package.json\r └─ README.md",
+  "main": "index.js",
+  "dependencies": {
+    "baseline-browser-mapping": "^2.8.10",
+    "browserslist": "^4.26.3",
+    "caniuse-lite": "^1.0.30001746",
+    "electron-to-chromium": "^1.5.228",
+    "escalade": "^3.2.0",
+    "fraction.js": "^4.3.7",
+    "nanoid": "^3.3.11",
+    "node-releases": "^2.0.21",
+    "normalize-range": "^0.1.2",
+    "picocolors": "^1.1.1",
+    "postcss-value-parser": "^4.2.0",
+    "source-map-js": "^1.2.1",
+    "update-browserslist-db": "^1.1.3"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/DivyaGarg0801/MediQueue-Intelligent-Patient-Flow-System.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/DivyaGarg0801/MediQueue-Intelligent-Patient-Flow-System/issues"
+  },
+  "homepage": "https://github.com/DivyaGarg0801/MediQueue-Intelligent-Patient-Flow-System#readme"
+}

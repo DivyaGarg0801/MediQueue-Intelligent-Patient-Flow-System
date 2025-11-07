@@ -1,0 +1,138 @@
+.patient-dashboard {
+  display: flex;
+  height: 100vh;
+  font-family: "Poppins", sans-serif;
+}
+
+.patient-dashboard .sidebar {
+  width: 220px;
+  background-color: #0077b6;
+  color: white;
+  padding: 20px;
+}
+
+.patient-dashboard .sidebar h2 {
+  font-size: 22px;
+  margin-bottom: 20px;
+  color: white;
+}
+
+.patient-dashboard .sidebar ul {
+  list-style: none;
+  padding: 0;
+}
+
+.patient-dashboard .sidebar li {
+  margin: 15px 0;
+  cursor: pointer;
+  transition: 0.2s;
+  padding: 8px;
+  border-radius: 5px;
+}
+
+.patient-dashboard .sidebar li:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.patient-dashboard .sidebar li.active {
+  background-color: rgba(255, 255, 255, 0.2);
+  font-weight: bold;
+}
+
+.patient-dashboard .content {
+  flex-grow: 1;
+  padding: 30px;
+  background-color: #f8f9fa;
+  overflow-y: auto;
+}
+
+.patient-dashboard .dashboard-content {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.stats-section {
+  display: flex;
+  justify-content: center;
+  gap: 30px;
+  margin-bottom: 40px;
+}
+
+.stat-card {
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+  padding: 25px 40px;
+  text-align: center;
+  flex: 1;
+  max-width: 300px;
+}
+
+.stat-card h3 {
+  color: #0077b6;
+  font-size: 2.2rem;
+  margin-bottom: 10px;
+}
+
+.stat-card p {
+  color: #555;
+  font-weight: 500;
+}
+
+.appointments-section {
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.appointments-section h3 {
+  margin-top: 30px;
+  color: #0d3b66;
+  border-bottom: 2px solid #0077b6;
+  padding-bottom: 5px;
+}
+
+.appointment-list {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  margin-top: 15px;
+}
+
+.appointment-card {
+  background: white;
+  border-left: 6px solid #0077b6;
+  padding: 15px 20px;
+  border-radius: 10px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+}
+
+.appointment-card.upcoming {
+  border-color: #28a745;
+}
+
+.appointment-card.past {
+  border-color: #ff5733;
+}
+
+.appointment-card p {
+  margin: 4px 0;
+  color: #333;
+}
+
+.status {
+  font-weight: bold;
+  text-transform: uppercase;
+}
+
+.empty-msg {
+  color: #777;
+  text-align: center;
+  margin-top: 10px;
+}
+
+.loading {
+  text-align: center;
+  padding: 100px;
+  font-size: 20px;
+  color: #0077b6;
+}

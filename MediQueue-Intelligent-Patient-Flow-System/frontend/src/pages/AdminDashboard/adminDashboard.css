@@ -1,0 +1,62 @@
+.admin-dashboard {
+  display: flex;
+  height: 100vh;
+  font-family: "Poppins", sans-serif;
+}
+
+.admin-dashboard .sidebar {
+  width: 220px;
+  background-color: #0077b6;
+  color: white;
+  padding: 20px;
+}
+
+.admin-dashboard .sidebar h2 {
+  font-size: 22px;
+  margin-bottom: 20px;
+  color: white;
+}
+
+.admin-dashboard .sidebar ul {
+  list-style: none;
+  padding: 0;
+}
+
+.admin-dashboard .sidebar li {
+  margin: 15px 0;
+  cursor: pointer;
+  transition: 0.2s;
+  padding: 8px;
+  border-radius: 5px;
+}
+
+.admin-dashboard .sidebar li:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.admin-dashboard .sidebar li.active {
+  background-color: rgba(255, 255, 255, 0.2);
+  font-weight: bold;
+}
+
+.admin-dashboard .content {
+  flex-grow: 1;
+  padding: 30px;
+  background-color: #f8f9fa;
+  overflow-y: auto;
+}
+
+.admin-dashboard table {
+  width: 100%;
+  border-collapse: collapse;
+  background-color: white;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+}
+
+.admin-dashboard th,
+.admin-dashboard td {
+  padding: 12px;
+  border-bottom: 1px solid #ddd;
+  text-align: left;
+}
+
