@@ -14,6 +14,15 @@ const BookAppointment = ({ onBookingSuccess }) => {
   // ✅ use the same key as dashboard
   const patientId = localStorage.getItem("userId");
 
+  // Get today's date in YYYY-MM-DD format for minimum date
+  const getTodayDate = () => {
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = String(today.getMonth() + 1).padStart(2, "0");
+    const day = String(today.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  };
+
   // ✅ Fetch doctor list
   useEffect(() => {
     fetch("http://localhost:5050/doctors")
@@ -24,21 +33,25 @@ const BookAppointment = ({ onBookingSuccess }) => {
 
   // Fetch available slots when doctor or date changes
   useEffect(() => {
-    const { doctor_id, date } = formData;
-    if (!doctor_id || !date) {
+    const doctorId = formData.doctor_id;
+    const date = formData.date;
+    const currentTime = formData.time;
+    
+    if (!doctorId || !date) {
       setAvailableSlots([]);
       return;
     }
+    
     const fetchSlots = async () => {
       try {
         setLoadingSlots(true);
         const res = await fetch(
-          `http://localhost:5050/doctors/${doctor_id}/available_slots?date=${date}`
+          `http://localhost:5050/doctors/${doctorId}/available_slots?date=${date}`
         );
         const data = await res.json();
         setAvailableSlots(data.slots || []);
         // Reset time if no longer available
-        if (!data.slots?.some((s) => s.start === formData.time)) {
+        if (currentTime && !data.slots?.some((s) => s.start === currentTime)) {
           setFormData((prev) => ({ ...prev, time: "" }));
         }
       } catch (e) {
@@ -49,6 +62,8 @@ const BookAppointment = ({ onBookingSuccess }) => {
       }
     };
     fetchSlots();
+    // We intentionally only depend on doctor_id and date, not time
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [formData.doctor_id, formData.date]);
 
   const handleSubmit = (e) => {
@@ -130,6 +145,7 @@ const BookAppointment = ({ onBookingSuccess }) => {
           type="date"
           value={formData.date}
           onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+          min={getTodayDate()}
           required
         />
 

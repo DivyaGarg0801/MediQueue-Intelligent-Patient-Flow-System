@@ -3,9 +3,10 @@ import "./doctorDashboard.css";
 import Appointments from "./appointments";
 import Consultations from "./consultations";
 import Patients from "./patient";
+import LiveQueue from "./liveQueue";
 
 const DoctorDashboard = () => {
-  const [activeTab, setActiveTab] = useState("appointments");
+  const [activeTab, setActiveTab] = useState("liveQueue");
   const [selectedAppointmentId, setSelectedAppointmentId] = useState(null);
 
   const handleLogout = () => {
@@ -32,6 +33,12 @@ const DoctorDashboard = () => {
         <h2>Doctor Dashboard</h2>
         <ul>
           <li 
+            className={activeTab === "liveQueue" ? "active" : ""}
+            onClick={() => handleTabChange("liveQueue")}
+          >
+            Live Queue
+          </li>
+          <li 
             className={activeTab === "appointments" ? "active" : ""}
             onClick={() => handleTabChange("appointments")}
           >
@@ -54,6 +61,9 @@ const DoctorDashboard = () => {
       </aside>
 
       <main className="content">
+        {activeTab === "liveQueue" && (
+          <LiveQueue />
+        )}
         {activeTab === "appointments" && (
           <Appointments onAddConsultation={handleAddConsultation} />
         )}

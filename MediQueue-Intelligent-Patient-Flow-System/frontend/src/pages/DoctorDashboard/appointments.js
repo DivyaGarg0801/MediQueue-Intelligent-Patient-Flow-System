@@ -112,6 +112,7 @@ const Appointments = ({ onAddConsultation }) => {
         <thead>
           <tr>
             <th>ID</th>
+            <th>Token #</th>
             <th>Patient</th>
             <th>Doctor</th>
             <th>Date</th>
@@ -125,6 +126,7 @@ const Appointments = ({ onAddConsultation }) => {
             appointments.map((a) => (
               <tr key={a.id}>
                 <td>{a.id}</td>
+                <td style={{ textAlign: "center", fontWeight: "bold" }}>{a.token_no || "--"}</td>
                 <td>{a.patient}</td>
                 <td>{a.doctor}</td>
                 <td>{a.date}</td>

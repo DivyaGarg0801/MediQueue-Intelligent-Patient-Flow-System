@@ -1,4 +1,5 @@
 import mysql.connector
+from datetime import date, datetime, time, timedelta
 
 # ---------- CONNECT TO MYSQL ----------
 conn = mysql.connector.connect(
@@ -116,59 +117,120 @@ VALUES (%s, %s, %s, %s);
     ('Karan Singh', 31, 'Male', '9090909090')
 ])
 
-# All appointments on same date (real date, not variable)
-cursor.executemany("""
-INSERT INTO appointment (p_id, d_id, date, time, status)
-VALUES (%s, %s, %s, %s, %s);
-""", [
-    (1, 1, '2025-11-02', '16:00:00', 'Scheduled'),
-    (2, 1, '2025-11-02', '16:30:00', 'Scheduled'),
-    (3, 1, '2025-11-02', '17:00:00', 'Scheduled'),
-    (4, 1, '2025-11-02', '10:30:00', 'Completed'),
-    (5, 1, '2025-11-02', '11:00:00', 'Scheduled'),
-    (1, 1, '2025-11-01', '11:30:00', 'Completed'),
-    (3, 1, '2025-11-03', '12:00:00', 'Scheduled'),
-    (2, 1, '2025-11-04', '12:30:00', 'Scheduled')
+# All appointments with real current date/time
+# Get current date and time
+today = date.today()
+now = datetime.now()
+current_time = now.time()
+
+# Create appointments:
+# - Some in the past (completed)
+# - Many today across all time slots (for testing live queue)
+# - Some in the future (scheduled)
+yesterday = today - timedelta(days=1)
+tomorrow = today + timedelta(days=1)
+day_after_tomorrow = today + timedelta(days=2)
+
+# Past appointments (completed)
+appointments_data = [
+    (1, 1, yesterday, time(11, 30, 0), 'Completed'),
+    (4, 1, yesterday, time(10, 30, 0), 'Completed'),
+]
+
+# Today's appointments - Create appointments across ALL time slots (9:00 AM to 5:30 PM)
+# This ensures we can test the live queue feature at any time
+# Working hours: 9:00 AM to 5:30 PM (30-minute slots)
+time_slots = []
+for hour in range(9, 18):  # 9 AM to 5 PM
+    time_slots.append(time(hour, 0, 0))   # :00 slot
+    time_slots.append(time(hour, 30, 0))  # :30 slot
+time_slots.append(time(17, 30, 0))  # 5:30 PM slot
+
+# Distribute appointments across time slots and patients
+# Cycle through patients (1-5) and create appointments
+patient_ids = [1, 2, 3, 4, 5]
+patient_index = 0
+
+for slot_time in time_slots:
+    # Create 2-3 appointments per time slot to test queue properly
+    num_appointments = 2 if slot_time.minute == 0 else 3  # Alternate between 2 and 3
+    
+    for i in range(num_appointments):
+        patient_id = patient_ids[patient_index % len(patient_ids)]
+        appointments_data.append((patient_id, 1, today, slot_time, 'Scheduled'))
+        patient_index += 1
+
+# Future appointments
+appointments_data.extend([
+    (1, 1, tomorrow, time(12, 0, 0), 'Scheduled'),
+    (2, 1, day_after_tomorrow, time(12, 30, 0), 'Scheduled'),
+    (3, 1, tomorrow, time(15, 0, 0), 'Scheduled'),
 ])
+
+# Insert appointments and get their IDs
+for appt in appointments_data:
+    cursor.execute("""
+    INSERT INTO appointment (p_id, d_id, date, time, status)
+    VALUES (%s, %s, %s, %s, %s);
+    """, appt)
+
+# Get appointment IDs for linking other records
+cursor.execute("SELECT a_id, status FROM appointment ORDER BY a_id")
+appointments = cursor.fetchall()
+
+# Create mappings for consultations, billing, and queue
+completed_appt_ids = [a[0] for a in appointments if a[1] == 'Completed']
+all_appt_ids = [a[0] for a in appointments]
 
 # Consultations (linked to completed appointments only)
-cursor.executemany("""
-INSERT INTO consultation (a_id, symptoms, prescription)
-VALUES (%s, %s, %s);
-""", [
-    (4, 'Fever', 'Paracetamol 500mg twice a day'),
-    (6, 'Cough', 'Cough syrup twice a day')
-])
+if len(completed_appt_ids) >= 2:
+    cursor.executemany("""
+    INSERT INTO consultation (a_id, symptoms, prescription)
+    VALUES (%s, %s, %s);
+    """, [
+        (completed_appt_ids[0], 'Fever', 'Paracetamol 500mg twice a day'),
+        (completed_appt_ids[1], 'Cough', 'Cough syrup twice a day')
+    ])
+elif len(completed_appt_ids) >= 1:
+    cursor.execute("""
+    INSERT INTO consultation (a_id, symptoms, prescription)
+    VALUES (%s, %s, %s);
+    """, (completed_appt_ids[0], 'Fever', 'Paracetamol 500mg twice a day'))
 
-# Billing
+# Billing - link to all appointments
+billing_data = []
+for i, a_id in enumerate(all_appt_ids):
+    # Mark first 2 completed appointments as paid, others as pending
+    payment_status = 'Paid' if a_id in completed_appt_ids[:2] else 'Pending'
+    billing_data.append((a_id, 500.00, payment_status))
+
 cursor.executemany("""
 INSERT INTO billing (a_id, amount, payment_status)
 VALUES (%s, %s, %s);
-""", [
-    (1, 500.00, 'Pending'),
-    (2, 500.00, 'Pending'),
-    (3, 500.00, 'Pending'),
-    (4, 500.00, 'Paid'),
-    (5, 500.00, 'Pending'),
-    (6, 500.00, 'Paid'),
-    (7, 500.00, 'Pending'),
-    (8, 500.00, 'Pending')
-])
+""", billing_data)
 
-# Queue
+# Queue - link to all appointments
+# Get all appointments sorted by date and time to assign tokens properly
+cursor.execute("""
+    SELECT a_id, date, time, status 
+    FROM appointment 
+    ORDER BY date ASC, time ASC
+""")
+all_appointments_sorted = cursor.fetchall()
+
+queue_data = []
+token_counter = 1
+
+for a_id, appt_date, appt_time, appt_status in all_appointments_sorted:
+    # Mark completed appointments as completed, others as waiting
+    queue_status = 'Completed' if appt_status == 'Completed' else 'Waiting'
+    queue_data.append((a_id, token_counter, queue_status))
+    token_counter += 1
+
 cursor.executemany("""
 INSERT INTO queue (a_id, token_no, status)
 VALUES (%s, %s, %s);
-""", [
-    (1, 1, 'Waiting'),
-    (2, 2, 'Waiting'),
-    (3, 3, 'Waiting'),
-    (4, 4, 'Completed'),
-    (5, 5, 'Waiting'),
-    (6, 6, 'Completed'),
-    (7, 7, 'Waiting'),
-    (8, 8, 'Waiting')
-])
+""", queue_data)
 
 # Admin
 cursor.execute("""
@@ -181,4 +243,4 @@ conn.commit()
 cursor.close()
 conn.close()
 
-print("✅ Clinic database created successfully with one doctor and all appointments on the same date (2025-11-02)!")
+print(f"Clinic database created successfully with real date/time! (Current date: {date.today()})")
